@@ -39,15 +39,24 @@ def clean_data(input_path: str, output_path: str):
     kmeans = KMeans(n_clusters=15, random_state=42, n_init=10)
     df['zone_cluster'] = kmeans.fit_predict(coords)
     
+    # Save the K-Means model to the same directory as output_path
+    import pickle
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    kmeans_path = os.path.join(output_dir, 'kmeans_model.pkl')
+    with open(kmeans_path, 'wb') as f:
+        pickle.dump(kmeans, f)
+    print(f"KMeans model saved to {kmeans_path}")
+    
     # Save cleaned dataset
     df.to_csv(output_path, index=False)
     print(f"Data pipeline complete! Saved {len(df)} cleaned rows to {output_path}")
 
 if __name__ == '__main__':
     input_file = r'C:\Users\sudpy\.gemini\antigravity\scratch\event_data.csv'
-    output_file = r'C:\Users\sudpy\.gemini\antigravity\scratch\gridlock-ai\backend\cleaned_events.csv'
+    output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cleaned_events.csv')
     
     if os.path.exists(input_file):
         clean_data(input_file, output_file)
     else:
         print(f"Error: {input_file} not found. Please ensure the EDA script ran successfully.")
+

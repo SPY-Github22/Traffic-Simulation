@@ -15,7 +15,7 @@ def test_simulate_event_valid():
         "event_cause": "Accident",
         "time_of_day": "Morning Peak"
     }
-    response = client.post("/simulate_event", json=payload)
+    response = client.post("/simulate_event", json={"events": [payload]})
     assert response.status_code == 200
     data = response.json()
     assert "risk_score" in data
@@ -29,6 +29,7 @@ def test_simulate_event_out_of_bounds():
         "event_cause": "Accident",
         "time_of_day": "Morning Peak"
     }
-    response = client.post("/simulate_event", json=payload)
+    response = client.post("/simulate_event", json={"events": [payload]})
     assert response.status_code == 422
     assert "Coordinates are out of bounds" in response.json()["detail"]
+
