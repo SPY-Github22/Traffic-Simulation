@@ -5,6 +5,7 @@ from typing import List, Optional
 import pickle
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import HistGradientBoostingClassifier
 import networkx as nx # Keeping for fallback if needed
 import rustworkx as rx
 from scipy.spatial import KDTree
@@ -160,11 +161,12 @@ def simulate_event(request: SimulationBatchRequest):
         event_type_encoded = event_type_map.get(first_event.event_cause, 0)
         
         features = np.array([[
+            concurrent_event_count,
+            avg_dist,
+            cluster_density,
             hour,
             day_of_week,
-            is_peak,
-            zone_clusters[0] if zone_clusters else 0,
-            event_type_encoded
+            is_peak
         ]])
         with joblib.parallel_backend('sequential'):
             probs = model.predict_proba(features)[0]
