@@ -171,7 +171,8 @@ def simulate_event(request: SimulationBatchRequest):
         with joblib.parallel_backend('sequential'):
             probs = model.predict_proba(features)[0]
         requires_road_closure = float(probs[1])
-        baseline_risk = requires_road_closure * 10.0
+        # Scale probability so that placing a manual event always generates a noticeable blast radius
+        baseline_risk = min(10.0, (requires_road_closure * 50.0) + 4.0)
 
     # 7. Apply Mitigation Logic (Barricades & Police reduce risk)
     mitigation_factor = 1.0
@@ -201,7 +202,7 @@ def simulate_event(request: SimulationBatchRequest):
     # 9. Dynamic Mitigation Strategies & Actions
     actions = []
     
-    if final_risk_score > 6.0:
+    if final_risk_score >= 1.0:
         for event in hazards:
             # Dynamic Strategy Proposals
             actions.append(

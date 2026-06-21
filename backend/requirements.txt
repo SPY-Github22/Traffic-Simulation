@@ -5,6 +5,10 @@ pandas
 scikit-learn
 xgboost
 networkx
+rustworkx
+scipy
+joblib
+numpy
 pytest
 pytest-asyncio
 matplotlib
