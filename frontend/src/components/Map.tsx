@@ -6,6 +6,87 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
 import { useStore } from '../store/useStore';
 
+/**
+ * Simulates congestion healing over time.
+ *
+ * At t=0 (event just happened): full original color (red/orange/purple)
+ * t=1-3 hrs later:  shifts toward amber/yellow
+ * t=3-5 hrs later:  shifts to green  (traffic clearing)
+ * t=5-8 hrs later:  green fades out  (road fully recovered)
+ * t>8 hrs or before event: invisible
+ *
+ * @param baseColor  RGBA color from the backend [r,g,b,a]
+ * @param eventHour  Hour the event was simulated at
+ * @param nowHour    Current position of the timeline scrubber
+ */
+function getTimeDecayedColor(
+  baseColor: number[],
+  eventHour: number,
+  nowHour: number
+): [number, number, number, number] {
+  const timeDiff = nowHour - eventHour;
+
+  // Before event happened — don't draw
+  if (timeDiff < -1) return [0, 0, 0, 0];
+
+  // At event time (±1 hr) — full original color
+  if (timeDiff <= 1) {
+    return [baseColor[0], baseColor[1], baseColor[2], baseColor[3] ?? 220];
+  }
+
+  // 1–3 hrs: shift toward amber/orange
+  if (timeDiff <= 3) {
+    const t = (timeDiff - 1) / 2; // 0 → 1
+    return [
+      Math.round(lerp(baseColor[0], 255, t)),
+      Math.round(lerp(baseColor[1], 165, t)),
+      Math.round(lerp(baseColor[2], 0,   t)),
+      baseColor[3] ?? 220,
+    ];
+  }
+
+  // 3–5 hrs: amber → green
+  if (timeDiff <= 5) {
+    const t = (timeDiff - 3) / 2; // 0 → 1
+    return [
+      Math.round(lerp(255, 50,  t)),
+      Math.round(lerp(165, 200, t)),
+      Math.round(lerp(0,   50,  t)),
+      baseColor[3] ?? 220,
+    ];
+  }
+
+  // 5–8 hrs: green fades out
+  if (timeDiff <= 8) {
+    const alpha = Math.max(0, 1 - (timeDiff - 5) / 3);
+    return [50, 200, 50, Math.round(220 * alpha)];
+  }
+
+  // Fully recovered
+  return [0, 0, 0, 0];
+}
+
+/** Linear interpolation helper */
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/**
+ * Line width also shrinks as congestion heals — thick at peak, thin when green.
+ */
+function getTimeDecayedWidth(
+  baseWidth: number,
+  eventHour: number,
+  nowHour: number
+): number {
+  const timeDiff = nowHour - eventHour;
+  if (timeDiff < -1) return 0;
+  if (timeDiff <= 1) return baseWidth;
+  if (timeDiff <= 5) return baseWidth * Math.max(0.35, 1 - (timeDiff - 1) * 0.16);
+  if (timeDiff <= 8) return baseWidth * 0.35 * Math.max(0, 1 - (timeDiff - 5) / 3);
+  return 0;
+}
+
 const INITIAL_VIEW_STATE = {
   longitude: 77.5946,
   latitude: 12.9716,
@@ -112,19 +193,13 @@ export default function GeospatialMap() {
           filled: false,
           lineWidthMinPixels: 2,
           getLineColor: (f: any) => {
-            const baseColor = f.properties.color || [255, 50, 50, 220];
-            // eventHour from properties; if missing, use current scrubber so lines are always visible
+            const baseColor = f.properties.color || [180, 0, 0, 220];
             const eventHour = f.properties.eventHour ?? timeOfDayHour;
-            const timeDiff = Math.abs(timeOfDayHour - eventHour);
-            // Only fade if scrubber is >8 hours away (much more forgiving)
-            const decayFactor = Math.max(0.15, 1 - (timeDiff * 0.1));
-            return [baseColor[0], baseColor[1], baseColor[2], Math.round((baseColor[3] ?? 220) * decayFactor)];
+            return getTimeDecayedColor(baseColor, eventHour, timeOfDayHour);
           },
           getLineWidth: (f: any) => {
             const eventHour = f.properties.eventHour ?? timeOfDayHour;
-            const timeDiff = Math.abs(timeOfDayHour - eventHour);
-            const decayFactor = Math.max(0.3, 1 - (timeDiff * 0.1));
-            return 10 * decayFactor; // Wider lines so they are clearly visible
+            return getTimeDecayedWidth(10, eventHour, timeOfDayHour);
           },
           pickable: true,
           updateTriggers: {
@@ -151,15 +226,11 @@ export default function GeospatialMap() {
           getLineColor: (f: any) => {
             const baseColor = f.properties.color || [160, 32, 240, 220];
             const eventHour = f.properties.eventHour ?? timeOfDayHour;
-            const timeDiff = Math.abs(timeOfDayHour - eventHour);
-            const decayFactor = Math.max(0.15, 1 - (timeDiff * 0.1));
-            return [baseColor[0], baseColor[1], baseColor[2], Math.round((baseColor[3] ?? 220) * decayFactor)];
+            return getTimeDecayedColor(baseColor, eventHour, timeOfDayHour);
           },
           getLineWidth: (f: any) => {
             const eventHour = f.properties.eventHour ?? timeOfDayHour;
-            const timeDiff = Math.abs(timeOfDayHour - eventHour);
-            const decayFactor = Math.max(0.3, 1 - (timeDiff * 0.1));
-            return 8 * decayFactor;
+            return getTimeDecayedWidth(8, eventHour, timeOfDayHour);
           },
           pickable: true,
           updateTriggers: {
