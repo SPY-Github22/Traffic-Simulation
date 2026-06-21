@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import pickle
 import numpy as np
+import pandas as pd
 import networkx as nx # Keeping for fallback if needed
 import rustworkx as rx
 from scipy.spatial import KDTree
@@ -258,12 +259,21 @@ def simulate_event(request: SimulationBatchRequest):
                         source, neighbor, edge_data = edge_idx
                         
                         highway_type = edge_data.get('highway', 'residential')
-                        hop_cost = 1
+                        
+                        # Exponential Capacity Decay Parameters
+                        base_cost = 1.0
+                        decay_factor = 1.5 # Residential streets clog up exponentially fast
+                        
                         if highway_type in ['primary', 'trunk', 'motorway']:
-                            hop_cost = 0.5
+                            base_cost = 0.3
+                            decay_factor = 1.1 # Massive arteries absorb traffic much further
                         elif highway_type in ['secondary', 'tertiary']:
-                            hop_cost = 0.8
+                            base_cost = 0.6
+                            decay_factor = 1.2
                             
+                        # Exponential decay: hop cost increases exponentially the further out we get
+                        hop_cost = base_cost * (decay_factor ** depth)
+                        
                         new_depth = depth + hop_cost
                         
                         if neighbor not in visited_nodes or new_depth < visited_nodes[neighbor]:
@@ -284,11 +294,17 @@ def simulate_event(request: SimulationBatchRequest):
                             else:
                                 target_geojson = affected_roads_geojson
                                 
-                            target_geojson["features"].append({
-                                "type": "Feature",
-                                "geometry": {"type": "LineString", "coordinates": [[n1['lat'], n1['lon']], [n2['lat'], n2['lon']]]},
-                                "properties": {"color": color, "eventHour": hour_map.get(event.time_of_day, 12)}
-                            })
+                            if 'polyline' in edge_data:
+                                target_geojson["features"].append({
+                                    "type": "Feature",
+                                    "properties": {"color": color, "eventHour": hour_map.get(event.time_of_day, 12), "polyline": edge_data['polyline']}
+                                })
+                            else:
+                                target_geojson["features"].append({
+                                    "type": "Feature",
+                                    "geometry": {"type": "LineString", "coordinates": [[n1['lat'], n1['lon']], [n2['lat'], n2['lon']]]},
+                                    "properties": {"color": color, "eventHour": hour_map.get(event.time_of_day, 12)}
+                                })
                             
             except Exception as e:
                 print(f"Error in rx blast radius: {e}")
@@ -312,13 +328,20 @@ def simulate_event(request: SimulationBatchRequest):
                     
                 path = paths[target_idx]
                 for i in range(len(path) - 1):
-                    n1 = graph.get_node_data(path[i])
-                    n2 = graph.get_node_data(path[i+1])
-                    detour_routes_geojson["features"].append({
-                        "type": "Feature",
-                        "geometry": {"type": "LineString", "coordinates": [[n1['lat'], n1['lon']], [n2['lat'], n2['lon']]]},
-                        "properties": {"color": [0, 255, 127, 255]} # Bright Spring Green
-                    })
+                    edge_data_detour = temp_graph.get_edge_data(path[i], path[i+1])
+                    if edge_data_detour and 'polyline' in edge_data_detour:
+                        detour_routes_geojson["features"].append({
+                            "type": "Feature",
+                            "properties": {"color": [0, 255, 127, 255], "polyline": edge_data_detour['polyline']}
+                        })
+                    else:
+                        n1 = graph.get_node_data(path[i])
+                        n2 = graph.get_node_data(path[i+1])
+                        detour_routes_geojson["features"].append({
+                            "type": "Feature",
+                            "geometry": {"type": "LineString", "coordinates": [[n1['lat'], n1['lon']], [n2['lat'], n2['lon']]]},
+                            "properties": {"color": [0, 255, 127, 255]} # Bright Spring Green
+                        })
             except Exception as e:
                 print(f"Detour Exception: {e}")
                 detour_possible = False
