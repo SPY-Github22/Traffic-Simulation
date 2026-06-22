@@ -66,7 +66,7 @@ def simulate_event(request: SimulationBatchRequest):
 
     hazards, mitigations = [], []
     for e in request.events:
-        if e.event_cause in ("Barricade", "Police Squad"):
+        if e.event_cause in ("Barricade", "Police Squad", "VMS", "Green Wave"):
             mitigations.append(MitigationItem(
                 latitude=e.latitude,
                 longitude=e.longitude,
@@ -130,3 +130,18 @@ def simulate_scenario(request: SimulateScenarioRequest):
             ))
 
     return run_simulation_logic(hazards, mitigations)
+
+
+@app.get("/network")
+def get_network():
+    """
+    Returns a GeoJSON FeatureCollection of the city's major road network
+    for the frontend to use as a static overlay.
+    """
+    from spatial import get_full_network
+    features = get_full_network()
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
+

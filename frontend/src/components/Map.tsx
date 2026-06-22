@@ -141,6 +141,20 @@ export default function GeospatialMap() {
     }
   };
 
+  const [roadNetwork, setRoadNetwork] = useState<any>(null);
+
+  React.useEffect(() => {
+    // Fetch the road network overlay on mount
+    fetch('/api/network')
+      .then(res => res.json())
+      .then(data => {
+        if (data.type === 'FeatureCollection') {
+          setRoadNetwork(data);
+        }
+      })
+      .catch(err => console.error("Failed to load road network overlay", err));
+  }, []);
+
   const layers = useMemo(() => {
     const arr = [];
 
@@ -157,6 +171,21 @@ export default function GeospatialMap() {
       })
     );
 
+    // 0.5 Road Network Overlay
+    if (roadNetwork) {
+      arr.push(
+        new GeoJsonLayer({
+          id: 'road-network-overlay',
+          data: roadNetwork,
+          stroked: true,
+          filled: false,
+          lineWidthMinPixels: 1,
+          getLineColor: (f: any) => f.properties.color || [100, 100, 100, 100],
+          pickable: false,
+        })
+      );
+    }
+
     // 1. The Pin Layer (Scatterplot)
     if (events.length > 0) {
       arr.push(
@@ -167,10 +196,12 @@ export default function GeospatialMap() {
           getFillColor: d => {
             if (d.cause === 'Barricade') return [255, 165, 0, 220]; // Orange
             if (d.cause === 'Police Squad') return [65, 105, 225, 220]; // Royal Blue
+            if (d.cause === 'VMS') return [255, 20, 147, 220]; // Deep Pink for VMS
+            if (d.cause === 'Green Wave') return [0, 255, 255, 220]; // Cyan for Green Wave
             return [0, 240, 255, 200]; // Brand Neon Blue for Hazards
           },
           getRadius: (d) => {
-            if (d.cause === 'Barricade' || d.cause === 'Police Squad') return 30;
+            if (d.cause === 'Barricade' || d.cause === 'Police Squad' || d.cause === 'VMS' || d.cause === 'Green Wave') return 30;
             const baseRadius = (riskScore ?? 0) > 0 ? 50 + ((riskScore ?? 0) * 15) : 30;
             return baseRadius * pulseFactor;
           },
@@ -255,14 +286,14 @@ export default function GeospatialMap() {
           filled: false,
           lineWidthMinPixels: 3,
           getLineColor: (f: any) => f.properties.color || [0, 255, 127, 255],
-          getLineWidth: 6,
+          getLineWidth: (f: any) => f.properties.isGreenWave ? 12 : 6,
           pickable: true
         })
       );
     }
 
     return arr;
-  }, [events, riskScore, actions, timeOfDayHour, affectedRoads, spilloverRoads, detourRoutes, pulseFactor]);
+  }, [events, riskScore, actions, timeOfDayHour, affectedRoads, spilloverRoads, detourRoutes, pulseFactor, roadNetwork]);
 
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
 

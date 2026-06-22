@@ -222,6 +222,7 @@ def compute_detour_routes(
     hazard_coords: List[Tuple[float, float]],
     mitigation_coords: List[Tuple[float, float]],
     hour: int,
+    green_wave_active: bool = False,
 ) -> Tuple[List[Dict], bool]:
     """
     Find an alternative route that avoids barricaded nodes.
@@ -281,6 +282,11 @@ def compute_detour_routes(
             n2 = temp_graph.get_node_data(v)
             road_coords = get_road_coordinates(edge_data, n1, n2)
             road_id = f"{u}_{v}"
+            
+            # Green Wave visual cue
+            color = [0, 255, 127, 255] # Default Green
+            if green_wave_active:
+                color = [0, 255, 255, 255] # Cyan glow for green wave
 
             detour_routes.append({
                 "road_id": road_id,
@@ -291,12 +297,13 @@ def compute_detour_routes(
                 "type": "Feature",
                 "geometry": {"type": "LineString", "coordinates": road_coords},
                 "properties": {
-                    "color": [0, 255, 127, 255],
+                    "color": color,
                     "congestion_score": 1.0,
                     "road_id": road_id,
                     "dynamic_congestion_score": 1.0,
                     "decay_factor": 1.0,
                     "eventHour": hour,
+                    "isGreenWave": green_wave_active,
                 },
             })
 
@@ -305,3 +312,61 @@ def compute_detour_routes(
         detour_possible = False
 
     return detour_routes, detour_possible
+
+
+# ---------------------------------------------------------------------------
+# Full Network Extraction for Frontend Overlay
+# ---------------------------------------------------------------------------
+
+def get_full_network() -> List[Dict]:
+    """
+    Extract all major roads from the graph to send to the frontend as a static overlay.
+    Filters out residential/unclassified roads to save bandwidth and improve FPS.
+    """
+    if not graph:
+        return []
+        
+    features = []
+    # Major roads to keep
+    keep_types = {"primary", "secondary", "tertiary", "trunk", "motorway", "primary_link", "secondary_link", "tertiary_link"}
+    
+    seen_edges = set()
+    
+    for u, v, edge_data in graph.edge_index_map().values():
+        # Avoid duplicate edges for undirected-like rendering
+        edge_id = tuple(sorted([u, v]))
+        if edge_id in seen_edges:
+            continue
+            
+        highway_type = edge_data.get("highway", "")
+        # Handle cases where highway is a list
+        if isinstance(highway_type, list):
+            highway_type = highway_type[0]
+            
+        if highway_type not in keep_types:
+            continue
+            
+        seen_edges.add(edge_id)
+        
+        n1 = graph.get_node_data(u)
+        n2 = graph.get_node_data(v)
+        road_coords = get_road_coordinates(edge_data, n1, n2)
+        
+        # Color based on road type
+        color = [100, 100, 100, 100] # Default grey for overlay
+        if highway_type in {"motorway", "trunk"}:
+            color = [80, 80, 80, 200]
+        elif highway_type in {"primary", "primary_link"}:
+            color = [70, 70, 70, 180]
+            
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": road_coords},
+            "properties": {
+                "color": color,
+                "highway": highway_type,
+                "road_id": f"{u}_{v}"
+            }
+        })
+        
+    return features

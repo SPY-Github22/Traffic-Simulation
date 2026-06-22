@@ -8,18 +8,14 @@ import osmnx as ox
 import polyline
 
 def generate_graph():
-    print("Downloading street network for Central Bangalore...")
-    # Bounding box for central Bangalore
-    north, south, east, west = 13.05, 12.90, 77.65, 77.50
-    
-    # Download drive network
-    # osmnx < 1.3: graph_from_bbox(north, south, east, west, network_type="drive")
-    # osmnx >= 1.3: graph_from_bbox(bbox=(north, south, east, west), network_type="drive")
-    # Actually wait, ox.graph_from_bbox(north, south, east, west, network_type="drive") works in older, but new osmnx uses bbox=(n,s,e,w).
-    # To be safe, I'll use ox.graph_from_point with dist.
-    
+    print("Downloading street network for Bangalore (12km radius)...")
+    # Using 12km radius from city center to get a robust network
     center_point = (12.9716, 77.5946)
-    G_nx = ox.graph_from_point(center_point, dist=8000, network_type="drive")
+    
+    # Configure osmnx to retain geometries
+    ox.settings.useful_tags_way = ox.settings.useful_tags_way + ['name', 'highway', 'lanes', 'maxspeed']
+    
+    G_nx = ox.graph_from_point(center_point, dist=12000, network_type="drive")
     print(f"Downloaded network with {len(G_nx.nodes)} nodes and {len(G_nx.edges)} edges.")
 
     # Convert to rustworkx
@@ -36,7 +32,13 @@ def generate_graph():
             'lon': data.get('x', 0.0)
         })
         node_mapping[n] = idx
-        node_indices[n] = idx
+        node_indices[idx] = idx  # Wait, node_indices mapped from n to idx before.
+        # Actually, in the frontend or simulation, we want to know idx->idx or n->idx?
+        # Let's map idx to idx to be consistent with generate_grid_graph.py
+        
+    # Need original node mapping for the KDTree order mapping
+    original_node_to_idx = {n: idx for n, idx in node_mapping.items()}
+    rx_node_indices = {idx: idx for idx in G_rx.node_indices()}
         
     for u, v, key, data in G_nx.edges(keys=True, data=True):
         # Calculate weight (length in meters)
@@ -45,26 +47,42 @@ def generate_graph():
         edge_attr = {
             'weight': weight,
             'highway': data.get('highway', 'unclassified'),
-            'osmid': data.get('osmid', 0)
+            'osmid': data.get('osmid', 0),
+            'length': weight
         }
         
-        # If the edge has a complex geometry (curved road), encode it as a polyline
+        # We need the exact coordinates of the edge for the frontend overlay
+        # If 'geometry' exists, it's a LineString
+        coords = []
         if 'geometry' in data:
             coords = list(data['geometry'].coords)
-            # coords are (lon, lat) from shapely
-            # polyline encodes (lat, lon)
-            lat_lon_coords = [(pt[1], pt[0]) for pt in coords]
-            encoded = polyline.encode(lat_lon_coords)
-            edge_attr['polyline'] = encoded
+        else:
+            # Straight line between u and v
+            u_node = G_nx.nodes[u]
+            v_node = G_nx.nodes[v]
+            coords = [(u_node['x'], u_node['y']), (v_node['x'], v_node['y'])]
+            
+        # polyline encodes (lat, lon), coords are (lon, lat) from shapely/osmnx
+        lat_lon_coords = [(pt[1], pt[0]) for pt in coords]
+        encoded = polyline.encode(lat_lon_coords)
+        edge_attr['polyline'] = encoded
             
         G_rx.add_edge(node_mapping[u], node_mapping[v], edge_attr)
 
     print("Building KDTree for spatial indexing...")
-    # Build KDTree for quick spatial lookups
+    # Build KDTree using the rustworkx node order so kdtree index matches rustworkx node index
     coords = []
-    ordered_nodes = sorted(node_indices.keys(), key=lambda n: node_indices[n])
-    for n in ordered_nodes:
-        data = G_nx.nodes[n]
+    # Guarantee we iterate nodes exactly matching G_rx.node_indices()
+    # In rustworkx, node indices are contiguous if we didn't delete any.
+    ordered_rx_indices = sorted(G_rx.node_indices())
+    
+    # We need a reverse mapping: rx_idx -> node data
+    rx_idx_to_node_data = {}
+    for n, idx in node_mapping.items():
+        rx_idx_to_node_data[idx] = G_nx.nodes[n]
+        
+    for idx in ordered_rx_indices:
+        data = rx_idx_to_node_data[idx]
         coords.append([data.get('y', 0.0), data.get('x', 0.0)]) # [lat, lon]
         
     kdtree = KDTree(np.array(coords))
@@ -73,7 +91,7 @@ def generate_graph():
     output_data = {
         "graph": G_rx,
         "kdtree": kdtree,
-        "node_indices": node_indices
+        "node_indices": rx_node_indices
     }
     
     output_path = "routing_graph.pkl"
@@ -85,3 +103,4 @@ def generate_graph():
 
 if __name__ == "__main__":
     generate_graph()
+

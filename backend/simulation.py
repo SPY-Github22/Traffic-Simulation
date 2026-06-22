@@ -241,11 +241,15 @@ def run_simulation_logic(
     # ── Spatial analysis (BFS road spreading + detour routing) ───────────────
     hazard_coords = [(h.latitude, h.longitude) for h in hazards]
     barricaded_nodes = set()
+    green_wave_active = False
+
     if spatial.kdtree:
         for m in mitigations:
-            if m.event_cause == "Barricade":
+            if m.event_cause in ("Barricade", "VMS"):
                 _, m_idx = spatial.kdtree.query([m.latitude, m.longitude])
                 barricaded_nodes.add(int(m_idx))
+            if m.event_cause == "Green Wave":
+                green_wave_active = True
 
     affected_dict, spillover_dict = spatial.compute_affected_roads(
         hazard_coords, barricaded_nodes, final_risk_score, hour
@@ -253,7 +257,7 @@ def run_simulation_logic(
 
     mitigation_coords = [(m.latitude, m.longitude) for m in mitigations]
     detour_routes, detour_possible = spatial.compute_detour_routes(
-        hazard_coords, mitigation_coords, hour
+        hazard_coords, mitigation_coords, hour, green_wave_active
     )
 
     return EventSimulationResponse(

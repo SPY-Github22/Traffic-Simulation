@@ -63,7 +63,7 @@ export default function SimulatorHUD() {
           </select>
         </div>
 
-        {eventCause !== 'Protest / Rally' && eventCause !== 'Waterlogging' && eventCause !== 'Barricade' && eventCause !== 'Police Squad' && (
+        {eventCause !== 'Protest / Rally' && eventCause !== 'Waterlogging' && eventCause !== 'Barricade' && eventCause !== 'Police Squad' && eventCause !== 'VMS' && eventCause !== 'Green Wave' && (
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-300">Vehicle Type</label>
             <select 
@@ -151,6 +151,12 @@ export default function SimulatorHUD() {
               </button>
               <button onClick={() => setEventCause('Police Squad')} className={`p-2 rounded border ${eventCause === 'Police Squad' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/20 text-[var(--color-brand-500)]' : 'border-gray-700 hover:border-gray-500 text-gray-300'} text-xs font-bold transition-all`}>
                 👮 Traffic Police
+              </button>
+              <button onClick={() => setEventCause('VMS')} className={`p-2 rounded border ${eventCause === 'VMS' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/20 text-[var(--color-brand-500)]' : 'border-gray-700 hover:border-gray-500 text-gray-300'} text-xs font-bold transition-all`}>
+                📺 VMS Sign
+              </button>
+              <button onClick={() => setEventCause('Green Wave')} className={`p-2 rounded border ${eventCause === 'Green Wave' ? 'border-teal-400 bg-teal-400/20 text-teal-400' : 'border-gray-700 hover:border-gray-500 text-gray-300'} text-xs font-bold transition-all`}>
+                🚦 Green Wave
               </button>
             </div>
         </div>

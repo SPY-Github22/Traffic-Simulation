@@ -82,6 +82,8 @@ class EventSimulationRequest(BaseModel):
         "Waterlogging",
         "Barricade",
         "Police Squad",
+        "VMS",
+        "Green Wave",
     ] = Field(..., description="Cause of the event")
     time_of_day: Literal[
         "Morning Peak", "Evening Peak", "Off-Peak", "Afternoon", "Night"
