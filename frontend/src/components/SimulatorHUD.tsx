@@ -165,10 +165,10 @@ export default function SimulatorHUD() {
       <AnimatePresence>
         {riskScore !== null && (
           <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="pt-4 border-t border-gray-800 flex flex-col gap-4 overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pt-4 border-t border-gray-800 flex flex-col gap-4"
           >
             <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-[var(--color-glass-border)]">
               <span className="text-sm font-medium text-gray-300">Ripple Risk</span>
