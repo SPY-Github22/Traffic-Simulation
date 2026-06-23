@@ -203,17 +203,7 @@ export default function SimulatorHUD() {
               </div>
             )}
 
-            {actions.length > 0 && (
-              <div className="flex flex-col gap-2 mt-2">
-                <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">AI Recommendation</span>
-                {actions.map((act, idx) => (
-                  <div key={idx} className="bg-[var(--color-brand-600)]/10 border border-[var(--color-brand-600)]/30 p-3 rounded-lg text-sm text-[var(--color-brand-500)] flex items-start gap-3">
-                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                    <p>{act.description}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+
             
           </motion.div>
         )}
