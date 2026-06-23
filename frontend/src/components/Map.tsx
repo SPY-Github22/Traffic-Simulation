@@ -304,25 +304,10 @@ export default function GeospatialMap() {
           data: spilloverRoads,
           stroked: true,
           filled: false,
-          lineWidthMinPixels: 2,
-          getLineColor: (f: any) => {
-            const baseColor = f.properties.color || [160, 32, 240, 220];
-            const eventHour = f.properties.eventHour ?? timeOfDayHour;
-            return getTimeDecayedColor(baseColor, eventHour, timeOfDayHour);
-          },
-          getLineWidth: (f: any) => {
-            const eventHour = f.properties.eventHour ?? timeOfDayHour;
-            return getTimeDecayedWidth(8, eventHour, timeOfDayHour);
-          },
+          lineWidthMinPixels: 3,
+          getLineColor: () => [180, 0, 255, 240],
+          getLineWidth: () => 10,
           pickable: true,
-          updateTriggers: {
-            getLineColor: [timeOfDayHour],
-            getLineWidth: [timeOfDayHour]
-          },
-          transitions: {
-            getLineColor: 500,
-            getLineWidth: 500
-          }
         })
       );
     }
