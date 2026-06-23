@@ -40,7 +40,7 @@ export default function SimulatorHUD() {
       initial={{ x: -300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 100 }}
-      className="absolute top-8 left-8 w-80 max-h-[90vh] overflow-y-auto overflow-x-hidden glass-panel rounded-2xl p-6 text-white flex flex-col gap-6 scrollbar-hide"
+      className="absolute top-8 left-8 w-80 max-h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden glass-panel rounded-2xl p-6 text-white flex flex-col gap-6 scrollbar-hide"
     >
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-[var(--color-brand-500)] mb-1">Gridlock Traffic Simulation</h1>

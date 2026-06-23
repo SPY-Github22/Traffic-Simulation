@@ -51,7 +51,9 @@ app.add_middleware(
 
 @app.get("/")
 def health_check():
-    return {"message": "Traffic Simulation API is running"}
+    import spatial
+    nodes = spatial.graph.num_nodes() if spatial.graph else 0
+    return {"message": "Traffic Simulation API is running", "nodes": nodes}
 
 
 @app.post("/simulate_event", response_model=EventSimulationResponse)

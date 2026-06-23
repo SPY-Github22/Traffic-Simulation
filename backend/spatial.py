@@ -191,7 +191,7 @@ def compute_affected_roads(
 
                     if neighbor not in visited or new_depth < visited[neighbor]:
                         visited[neighbor] = new_depth
-                        queue.append((neighbor, int(depth) + 1))
+                        queue.append((neighbor, new_depth))
 
                         is_spillover = base_cost == 1.0 and new_depth > 3
                         feature = _build_road_feature(
